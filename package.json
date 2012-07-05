@@ -1,0 +1,24 @@
+{
+    "name": "coonamSummer"
+  , "version": "0.0.1"
+  , "author": "Alexander Jentz"
+  , "description": "A very simple straightforward IOC/DI container"
+  , "repository": {
+    "type": "git",
+    "url": "https://github.com/beyama/coonam_summer.git"
+  }
+  , "keywords": ["ioc", "di"]
+  , "private": true
+  , "dependencies": {
+    "async": "*"
+  }
+  , "devDependencies": {
+      "mocha": "0.10.0"
+    , "should": "0.5.1"
+    , "connect": "2.3.5"
+    , "supertest": "0.1.0"
+  }
+  , "engine": {
+    "node": ">=0.6"
+  }
+}
