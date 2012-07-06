@@ -13,6 +13,9 @@ with their dependencies with ease.
 * [Scoped locals](./#section_locals)
 * [Scoped objects](./#section_scoped)
 * [Middleware](./#section_middleware)
+* [Events](./#section_events)
+* [Hooks](./#section_hooks)
+* [Included hooks](./#section_included_hooks)
 * [Contribute](./#section_contribute)
 * [License](./#section_license)
 
@@ -63,7 +66,7 @@ Summer::register can be called as follow:
 * finalizer: This function is called on deleting the resolved object from scope or
   by shutting down the scope (only useful for [scoped objects](./#section_scoped)).
 * class: Class to initialize (only when no initializer is supplied)
-* args: Arguments for initializer/constructor
+* args: Array of arguments for initializer/constructor
 * properties: Object with properties to set on initialized object
 
 **Register a class:**
@@ -196,6 +199,70 @@ a request scope on every request. It calls shutdown on the request scope after c
     app.use (req, res)->
       doSometing req.context
       res.end("ok") #=> will shutdown the previously created request context (req.context)
+
+<h2 id="section_events">Events</h2>
+
+The Summer container extends Nodes events.EventEmitter. Three events are emitted by Summer:
+
+* initialized: After resolving the object. 
+  The listener signature is (container, factory, object).
+* dispose: During disposing the object, triggered by Summer::dispose. 
+  The listener signature is (container, factory, object).
+* shutdown: During shutting down the container, triggered by Summer::shutdown. 
+  The listener signature is (container).
+
+<h2 id="section_hooks">Hooks</h2>
+
+The hooks are interceptor callbacks, allowing the application to inspect and/or manipulate
+resolved objects during their life cycle.
+
+**Registration of a hook**
+
+    Summer.addHook "afterPropertiesSet", (factory, instance, callback)->
+      if typeof instance.afterPropertiesSet is "function"
+        instance.afterPropertiesSet()
+      callback()
+
+Summer has three life cycle phases: 
+
+* afterInitialize: Is called after resolving the object and before setting its properties.
+* afterPropertiesSet: Is called after resolving and setting properties on the resolved object,
+  this is called independently of defining properties for a registry entry.
+* dispose: Is called after removing the resolved object from scope and calling its finalizer.
+
+All predefined life cycle hooks are called with the current scope as their binding and
+the factory and the instance as arguments.
+
+<h2 id="section_included_hooks">Included hooks</h2>
+
+Summer comes with some predefined hooks to extend the basic functionality.
+
+They can be added as follow:
+
+    Summer.initializingObject()
+    Summer.applicationContextAware()
+    Summer.contextIdAware()
+
+*   Summer.initializingObject: If implemented on resolved object, this will call
+    "afterPropertiesSet". This hook is registered on the "afterPropertiesSet" phase.
+*   Summer.applicationContextAware: If implemented on the resolved object, this will call
+    "setApplicationContext" with the context. This hook is registered on the 
+    "afterInitialize" phase.
+*   Summer.contextIdAware: If implement on the resolved object, this will call
+    "setContextId" with the context id. This hook is registered on the "afterInitialize" phase.
+
+**Example:**
+
+    Summer.initializingObject()
+    Summer.applicationContextAware()
+    Summer.contextIdAware()
+
+**Example class:**
+
+    class Extension
+      setContextId: (id)-> @id = id
+      setApplicationContext: (ctx)-> @ctx = ctx
+      afterPropertiesSet: -> doSomething()
 
 <h2 id="section_contribute">How to contribute</h2>
 

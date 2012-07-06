@@ -1,6 +1,19 @@
+## coonamSummer
+#
+# **Summer** is a very simple straightforward IOC/DI container.
+#
+# See the [readme](http://github.com/beyama/coonam_mongo) for details of usage.
+#
+# The source for [coonamSummer is available](http://github.com/beyama/coonam_summer)
+# on GitHub and released under the MIT license.
+
 async = require "async"
 EventEmitter = require("events").EventEmitter
 
+# ### Ref class
+#
+# Is internally used to mark an argument/property as a reference to resolve.
+# Instances of ref are returnd by Summer::ref.
 class Ref
   constructor: (id)->
     return new Ref(id) unless @ instanceof Ref
@@ -8,7 +21,9 @@ class Ref
 
   toString: -> @id
 
-# Is klass subclass of superklass
+# ### Internal helper methods
+
+# Returns true if klass is a subclass of superklass otherwise false.
 isSubclassOf = (klass, superKlass)->
     _super = klass.__super__
     while _super
@@ -16,6 +31,7 @@ isSubclassOf = (klass, superKlass)->
       _super = _super.__super__
     false
 
+# Create an instance of class with the supplied args as constructor arguments.
 createInstance = (klass, args)->
   switch args?.length ? 0
     when 0 then new klass
@@ -30,12 +46,13 @@ createInstance = (klass, args)->
     when 9 then new klass(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8])
     else throw new Error("Constructor must have a maximum arguments length of 9.")
 
-inProcess = {} # marker
+# Marker object to mark a scoped object as "in progress" during its asynchronous resolve.
+InProgress = {}
 
-# resolve references in arguments list
+# Internal helper to resolve references in argument lists.
 resolveArguments = (context, args, callback)->
   if args?.length
-    # resolve arguments
+    # resolve arguments in series
     async.mapSeries args, (arg, callback)=>
       if arg instanceof Ref
         context.resolve(arg.toString(), callback)
@@ -45,26 +62,37 @@ resolveArguments = (context, args, callback)->
   else
     callback(null, args)
 
-# resolve and set properties
+# Internal helper to resolve and set properties on an instance.
 resolveAndSetProperties = (context, factory, target, properties, callback)->
-  async.forEachSeries Object.keys(properties), (propertyName, callback)=>
-    value = properties[propertyName]
-    if value instanceof Ref
-      context.resolve value.toString(), (err, ref)->
-        return callback(err) if err
+  hasProperties = if properties then Object.keys(properties).length else false
 
-        target[propertyName] = ref
+  if hasProperties
+    async.forEachSeries Object.keys(properties), (propertyName, callback)=>
+      value = properties[propertyName]
+      if value instanceof Ref
+        context.resolve value.toString(), (err, ref)->
+          return callback(err) if err
+
+          target[propertyName] = ref
+          callback()
+      else
+        instance[propertyName] = value
         callback()
-    else
-      instance[propertyName] = value
-      callback()
-  , (err)->
-    return callback(err) if err
-    Container.runHooks("afterPropertiesSet", context, factory, target, callback)
+    , (err)->
+      return callback(err) if err
+      Summer.runHooks("afterPropertiesSet", context, factory, target, callback)
+  else
+    Summer.runHooks("afterPropertiesSet", context, factory, target, callback)
 
+# ## ResolveContext class
+#
+# Is used internally as binding for initializer functions to detect cyclical dependencies.
+#
+# It is a delegator to the current context so you can use it from inside your initializer like
+# inside a context (e.g. @resolve, @get, @set, ...).
 class ResolveContext
-  constructor: (container)->
-    @container = container
+  constructor: (context)->
+    @context = context
     @stack = []
 
   push: (id)-> @stack.push(id)
@@ -73,36 +101,56 @@ class ResolveContext
 
   contains: (id)-> @stack.indexOf(id) > -1
 
-  resolve: (id, callback)-> @container.resolve(id, @, callback)
+  resolve: (id, callback)-> @context.resolve(id, @, callback)
 
-class Container extends EventEmitter
+# ## The main class of Summer
+class Summer extends EventEmitter
   @ref: Ref
 
   @_hooks = {}
 
+  # Register a hook for an event.
   @addHook: (event, hook)->
     hooks = @_hooks[event] ||= []
     hooks.push(hook)
 
+  # Remove a hook from an event.
   @removeHook: (event, hook)->
     return unless (hooks = @_hooks[event])
     return if (index = hooks.indexOf(hook)) < 0
 
     hooks.splice(index, 1)
 
+  # Remove all hooks for an event or all hooks if no event name is supplied.
+  @removeAllHooks: (event)->
+    if event
+      delete @_hooks[event]
+    else
+      @_hooks = {}
+
+  # Get an array of hooks for the specified event.
   @hooks: (event)-> @_hooks[event]
 
+  # Run all hooks for an event.
   @runHooks: (event, context, factory, instance, callback)->
     return callback() unless @hooks(event)?.length
 
     async.forEachSeries @hooks(event), (hook, callback)->
-      hook.call(context, instance, callback)
+      hook.call(context, factory, instance, callback)
     , callback
 
+  # <h2 id="class_method_middleware">Middleware generator</h2>
+  #
+  # Returns a Connect middleware.
+  #
+  # The middleware will wrap the given parent context in a request context
+  # on every request and assigning it to req.context.
+  #
+  # After calling res.end on the response object, shutdown will be called
+  # on the request context container.
   @middleware: (parent, name="request")->
-    # middleware function
     (req, res, next)->
-      context = new Container(parent, name)
+      context = new Summer(parent, name)
       req.context = context
 
       end = res.end
@@ -113,55 +161,49 @@ class Container extends EventEmitter
 
       next()
 
+  # ### Constructor of Summer
+  #
+  # Takes optionally a parent context and a name.
   constructor: (parent, name)->
     super()
     @parent = parent if parent
     @name = name if name
     @attributes = {}
     @factories  = {}
-    @resolved   = null
-    @shutdownHooks = null
 
-  registerShutdownHook: (id, hook)->
-    @shutdownHooks ||= {}
-    @shutdownHooks[id] = hook
-
-  setResolvedObject: (id, object)->
-    @resolved ||= {}
-    @resolved[id] = object
-
-  getResolvedObject: (id)->
-    @resolved?[id]
-
-  hasResolvedObject: (id)->
-    @resolved?[id]?
-
+  # Dispose an object by emitting "dispose", removing it from the context,
+  # calling the finalizer and calling the "dispose" hooks.
   dispose: (id, callback)->
-    return callback() unless @hasResolvedObject(id)
-
-    object = @getResolvedObject(id)
+    object = @attributes[id]
     factory = @getFactory(id)
+
+    return callback() unless object or factory
 
     @emit("dispose", @, factory, object)
 
-    delete @resolved[id]
+    @delete(id)
 
-    if (hook = @shutdownHooks?[id])
-      delete @shutdownHooks[id]
-      hook.call @, object, ->
-        Container.runHooks("dispose", @, factory, object, callback)
+    if (factory.finalizer)
+      factory.finalizer.call @, object, ->
+        Summer.runHooks("dispose", @, factory, object, callback)
     else
-      Container.runHooks("dispose", @, factory, object, callback)
+      Summer.runHooks("dispose", @, factory, object, callback)
 
+  # Get the ids of all registered factories where class is klass or class is subclass of klass.
   getIdsForType: (klass)->
     for id, f of @factories when f.class and (f.class is klass or isSubclassOf(f.class, klass))
       id
 
+  # Return a middleware with `this` as parent context.
+  #
+  # See: Summer.middleware
   middleware: (name="request")->
-    Container.middleware(@, name)
+    Summer.middleware(@, name)
 
+  # Returns a reference to a factory to resolve.
   ref: Ref
 
+  # Returns the root context.
   root: ->
     return @ unless @parent
 
@@ -169,16 +211,17 @@ class Container extends EventEmitter
     while root = root.parent
       return root unless root.parent
 
+  # Shutdown the context by emitting "shutdown" and disposing all resolved objects.
   shutdown: (callback)->
     callback ||= ->
 
     @emit "shutdown", @
-    return callback() unless @resolved
 
-    async.forEachSeries Object.keys(@resolved), (id, callback)=>
+    async.forEachSeries Object.keys(@attributes), (id, callback)=>
       @dispose(id, callback)
     , callback
 
+  # Returns a named context.
   context: (name)->
     return @ if @name is name
 
@@ -187,22 +230,27 @@ class Container extends EventEmitter
       return parent if parent.name is name
     undefined
 
-  get: (key)->
+  # Get a value from context.
+  get: (key, lookupAncestors=true)->
     return @attributes[key] if @attributes.hasOwnProperty(key)
-    return @parent.get(key) if @parent
+    return @parent.get(key) if lookupAncestors and @parent
     undefined
 
+  # Set a value on context.
   set: (key, value)->
     @attributes[key] = value
 
-  has: (key)->
+  # Returns true if attribute is set otherwise false.
+  has: (key, lookupAncestors=true)->
     return true if @attributes.hasOwnProperty(key)
-    return @parent.has(key) if @parent
+    return @parent.has(key) if lookupAncestors and @parent
     false
 
+  # Delete an attribute from `this` context.
   delete: (key)->
     delete @attributes[key]
 
+  # Internally used to build an initializer function which constructs a class.
   buildClassInitializer: (factory)->
     # wrap constructor
     factory.initializer = (args...)->
@@ -214,11 +262,12 @@ class Container extends EventEmitter
       callback(null, instance)
     @buildNcallInitializer(factory)
 
+  # Internally used to wrap an initializer function to resolve arguments,
+  # run hooks and set properties after initializing.
   buildNcallInitializer: (factory)->
     args = factory.args
     func = factory.initializer
     properties = factory.properties
-    hasProperties = properties? and Object.keys(properties).length
 
     (callback)->
       resolveArguments @, args, (err, args=[])=>
@@ -227,16 +276,14 @@ class Container extends EventEmitter
         args.push (err, result)=>
           return callback(err) if err
 
-          Container.runHooks "afterInitialize", @, factory, result, (err)=>
+          Summer.runHooks "afterInitialize", @, factory, result, (err)=>
             return callback(err) if err
 
-            if hasProperties
-              resolveAndSetProperties @, factory, result, properties, (err)->
-                callback(null, result)
-            else
-              callback(null, result)
+            resolveAndSetProperties @, factory, result, properties, (err)->
+              callback(err, result)
         func.apply(@, args)
 
+  # Register a class/initializer
   register: (id, options, func)->
     factory = { id: id, initializer: func }
 
@@ -263,10 +310,12 @@ class Container extends EventEmitter
 
     @factories[id] = factory
 
+  # Get factory by id.
   getFactory: (id)->
     return @factories[id] if @factories.hasOwnProperty(id)
     return @parent.getFactory(id) if @parent
 
+  # Resolve one or more objects by id(s).
   resolve: (id, context, callback)->
     if typeof context is "function"
       callback = context
@@ -304,15 +353,15 @@ class Container extends EventEmitter
 
       resolve = =>
         if scope
-          value = scope.getResolvedObject(id)
-          # retry if in process
-          if value is inProcess
+          value = scope.get(id, false)
+          # retry if in progress
+          if value is InProgress
             return async.nextTick resolve
           # return value if present
           else if value?
             return callback(null, value)
           else
-            scope.setResolvedObject(id, inProcess)
+            scope.set(id, InProgress)
 
         factory.initializer.call context, (err, result)->
           context.pop()
@@ -320,18 +369,18 @@ class Container extends EventEmitter
             scope.delete(id) if scope
             return callback(err)
           if scope
-            scope.registerShutdownHook(id, factory.finalizer) if factory.finalizer
-            scope.setResolvedObject(id, result)
-            scope.emit "initialized", scope, id, result
+            scope.set(id, result)
+            scope.emit "initialized", scope, factory, result
           callback(null, result)
 
       resolve()
 
-# create delegators from ResolveContext to Container
-for name, func of Container.prototype when typeof func is "function"
+# Create delegators from ResolveContext to Summer
+for name, func of Summer.prototype when typeof func is "function"
   unless ResolveContext::[name]
     do (name, func)->
-      ResolveContext::[name] = -> func.apply(@.container, arguments)
+      ResolveContext::[name] = -> func.apply(@.context, arguments)
 
-Container.ref = Ref
-module.exports = Container
+Summer.ref = Ref
+
+module.exports = Summer

@@ -15,7 +15,56 @@ class Test
 
 describe "Summer", ->
   beforeEach ->
+    Summer.removeAllHooks()
     c = new Summer
+
+  describe "class method .addHook", ->
+    it "should register hook for an event", ->
+      hook = (factory, instance, callback)->
+      Summer.addHook "afterPropertiesSet", hook
+      Summer.hooks("afterPropertiesSet").should.include hook
+
+  describe "class method .removeHook", ->
+    it "should remove hook from an event", ->
+      hook = (factory, instance, callback)->
+      Summer.addHook "afterPropertiesSet", hook
+      Summer.removeHook "afterPropertiesSet", hook
+      Summer.hooks("afterPropertiesSet").should.not.include hook
+
+  describe "class method .removeAllHooks", ->
+    it "should remove all hooks for an event", ->
+      Summer.addHook "afterPropertiesSet", (factory, instance, callback)->
+      Summer.removeAllHooks "afterPropertiesSet"
+      should.not.exist Summer.hooks("afterPropertiesSet")
+
+    it "should remove all hooks if no event is given", ->
+      Summer.addHook "afterPropertiesSet", (factory, instance, callback)->
+      Summer.addHook "afterInitialize", (factory, instance, callback)->
+      Summer.removeAllHooks()
+
+      should.not.exist Summer.hooks("afterPropertiesSet")
+      should.not.exist Summer.hooks("afterInitialize")
+
+  describe "class method .runHooks", ->
+    it "should run registerd hooks", (done)->
+      instance = null
+
+      Summer.addHook "anEvent", (factory, object, callback)->
+        instance = object
+        factory.id.should.be.equal "foo"
+        @.should.be.equal c
+        callback()
+
+      c.register "foo", class: Test
+
+      c.resolve "foo", (err, foo)->
+        should.not.exist err
+
+        factory = c.getFactory("foo")
+        Summer.runHooks "anEvent", c, factory, foo, (err)->
+          should.not.exist err
+          foo.should.be.equal instance
+          done()
 
   describe ".get", ->
     it "should return undefined if no value is set", ->
@@ -105,7 +154,7 @@ describe "Summer", ->
 
       c.register "object", (callback)->
         called = true
-        @.container.should.be.equal c
+        @.context.should.be.equal c
         callback(null, "foo")
 
       c.resolve "object", (err, object)->
@@ -171,8 +220,8 @@ describe "Summer", ->
       child.resolve "test", (err, test)->
         should.not.exist err
 
-        should.not.exist child.resolved
-        c.getResolvedObject("test").should.be.equal test
+        child.has("test", false).should.be.false
+        c.get("test").should.be.equal test
         done()
 
     it "should get resolved object from context if already resolved", (done)->
@@ -199,7 +248,7 @@ describe "Summer", ->
         process.nextTick ->
           c.resolve "test", (err, result)->
             should.not.exist err
-            result.should.be.equal c.getResolvedObject("test")
+            result.should.be.equal c.get("test")
             if ++count is 3
               done()
 
@@ -209,29 +258,24 @@ describe "Summer", ->
       
       req.resolve "test", (err, test)->
         should.not.exist err
-        test.should.be.equal req.getResolvedObject("test")
-        c.hasResolvedObject("test").should.be.false
+        test.should.be.equal req.get("test")
+        c.has("test").should.be.false
         done()
 
-    it "should register finalizer as shutdown hook and emit 'initialized'", (done)->
+    it "should emit 'initialized'", (done)->
       called = false
-      hook = (o, callback)-> callback()
 
-      c.register "test",
-        class: Test
-        scope: "singleton"
-        finalizer: hook
+      c.register "test", class: Test, scope: "singleton"
 
-      c.on "initialized", (ctx, id, object)->
+      c.on "initialized", (ctx, factory, object)->
         called = true
-        id.should.be.equal "test"
+        factory.id.should.be.equal "test"
         object.should.be.instanceof Test
 
       c.resolve "test", (err, test)->
         should.not.exist err
 
         called.should.be.true
-        c.shutdownHooks["test"].should.be.equal hook
         done()
 
     it "should get an error if named context is not found", (done)->
@@ -283,7 +327,7 @@ describe "Summer", ->
         done()
 
   describe ".dispose", ->
-    it "should run finalizer, delete resolved object, emit 'dispose' and delete shutdown hook", (done)->
+    it "should run finalizer, delete resolved object and emit 'dispose'", (done)->
       finalizerCalled = false
       listenerCalled  = false
 
@@ -307,9 +351,7 @@ describe "Summer", ->
         c.dispose "test", ->
           finalizerCalled.should.be.true
           listenerCalled.should.be.true
-
-          should.not.exist c.shutdownHooks["test"]
-          c.hasResolvedObject("test").should.be.false
+          c.has("test").should.be.false
           done()
 
   describe ".getIdsForType", ->
@@ -340,7 +382,7 @@ describe "Summer", ->
         should.not.exist err
 
         c.shutdown ->
-          c.hasResolvedObject("test").should.be.false
+          c.has("test").should.be.false
           done()
 
   app = context = null
