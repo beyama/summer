@@ -182,6 +182,19 @@ describe "Summer", ->
         result.should.be.equal "bar"
         done()
 
+    it "should resolve and alias dependencies if called with a map", (done)->
+      called = false
+      object = { foo: "bar" }
+
+      c.register "object", (callback)->
+        callback(null, object)
+
+      c.resolve baz: "object", (err, result)->
+        should.not.exist err
+
+        result.baz.foo.should.be.equal "bar"
+        done()
+
     it "should detect cyclical dependencies", (done)->
       c.register "one", [ref("one")], (callback)->
         callback(null, 1)

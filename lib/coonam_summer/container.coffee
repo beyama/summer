@@ -334,6 +334,19 @@ class Summer extends EventEmitter
       , (err)->
         return callback(err) if err
         callback(null, result)
+    else if typeof id is "object"
+      map = id
+      result = {}
+
+      async.forEachSeries Object.keys(map), (alias, callback)=>
+        _id = map[alias]
+        @resolve _id, (err, res)->
+          callback(err) if err
+          result[alias] = res
+          callback()
+      , (err)->
+        return callback(err) if err
+        callback(null, result)
     else
       factory = @getFactory(id)
 
