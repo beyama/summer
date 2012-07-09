@@ -5,8 +5,13 @@ Summer = require "./container"
 hooks.initializingObject = ->
   Summer.addHook "afterPropertiesSet", (factory, instance, callback)->
     if typeof instance.afterPropertiesSet is "function"
-      instance.afterPropertiesSet()
-    callback()
+      if instance.afterPropertiesSet.length
+        instance.afterPropertiesSet(callback)
+      else
+        instance.afterPropertiesSet()
+        callback()
+    else
+      callback()
 
 hooks.applicationContextAware = ->
   Summer.addHook "afterInitialize", (factory, instance, callback)->
@@ -19,11 +24,21 @@ hooks.applicationContextAware = ->
           @context(scope)
       else
         @context
-      instance.setApplicationContext(context)
-    callback()
+      if instance.setApplicationContext.length > 1
+        instance.setApplicationContext(context, callback)
+      else
+        instance.setApplicationContext(context)
+        callback()
+    else
+      callback()
 
 hooks.contextIdAware = ->
   Summer.addHook "afterInitialize", (factory, instance, callback)->
     if typeof instance.setContextId is "function"
-      instance.setContextId(factory.id)
-    callback()
+      if instance.setContextId.length > 1
+        instance.setContextId(factory.id, callback)
+      else
+        instance.setContextId(factory.id)
+        callback()
+    else
+      callback()

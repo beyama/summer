@@ -13,6 +13,19 @@ class TestWithCallbacks
   setContextId: (id)->
     @contextId = id
 
+class TestWithAsyncCallbacks
+  afterPropertiesSet: (callback)->
+    @afterPropertiesSetCalled = true
+    callback()
+
+  setApplicationContext: (ctx, callback)->
+    @applicationContext = ctx
+    callback()
+
+  setContextId: (id, callback)->
+    @contextId = id
+    callback()
+
 c = null
 
 describe "hook", ->
@@ -21,6 +34,7 @@ describe "hook", ->
     c = new Summer
     c.register "test", class: Test
     c.register "testWithCallbacks", class: TestWithCallbacks, scope: "singleton"
+    c.register "testWithAsyncCallbacks", class: TestWithAsyncCallbacks, scope: "singleton"
 
   describe "initializingObject", ->
     it "should call afterPropertiesSet on initialized object if implemented", (done)->
@@ -36,10 +50,19 @@ describe "hook", ->
           testWithCallbacks.afterPropertiesSetCalled.should.be.true
           done()
 
+    it "should call afterPropertiesSet async on initialized if implemented with callback argument", (done)->
+      Summer.initializingObject()
+
+      c.resolve "testWithAsyncCallbacks", (err, test)->
+        should.not.exist err
+
+        test.afterPropertiesSetCalled.should.be.true
+        done()
+
   describe "applicationContextAware", ->
     beforeEach -> Summer.applicationContextAware()
 
-    it "should call setApplicationContext on initialized object if implemented", (done)->
+    it "should call setApplicationContext on initialized if implemented", (done)->
       c.resolve "test", (err, test)->
         should.not.exist err
 
@@ -48,6 +71,13 @@ describe "hook", ->
 
           testWithCallbacks.applicationContext.should.be.equal c
           done()
+
+    it "should call setApplicationContext async on initialized if implemented with callback argument", (done)->
+      c.resolve "testWithAsyncCallbacks", (err, test)->
+        should.not.exist err
+
+        test.applicationContext.should.be.equal c
+        done()
 
     it "should get application context with the right scope", (done)->
       child = new Summer(c, "request")
@@ -77,3 +107,10 @@ describe "hook", ->
 
           testWithCallbacks.contextId.should.be.equal "testWithCallbacks"
           done()
+
+    it "should call setContextId async on initialized if implemented with callback argument", (done)->
+      c.resolve "testWithAsyncCallbacks", (err, test)->
+        should.not.exist err
+
+        test.contextId.should.be.equal "testWithAsyncCallbacks"
+        done()
