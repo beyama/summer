@@ -114,3 +114,38 @@ describe "hook", ->
 
         test.contextId.should.be.equal "testWithAsyncCallbacks"
         done()
+
+  describe "autowired", ->
+    beforeEach -> Summer.autowired()
+
+    it "should autowire dependencies of classes", (done)->
+      c.register "foo", (c)-> c(null, "foo")
+      c.register "bar", (c)-> c(null, "bar")
+
+      class Baz
+        Summer.autowire @, foo: "foo", bar: "bar"
+
+      c.register "baz", class: Baz
+
+      c.resolve "baz", (err, baz)->
+        should.not.exist err
+
+        baz.foo.should.be.equal "foo"
+        baz.bar.should.be.equal "bar"
+        done()
+
+    it "should autowire dependencies of functions (initializer)", (done)->
+      c.register "foo", (c)-> c(null, "foo")
+      c.register "bar", (c)-> c(null, "bar")
+
+      init = (c)-> c(null, {})
+      Summer.autowire init, foo: "foo", bar: "bar"
+
+      c.register "baz", init
+
+      c.resolve "baz", (err, baz)->
+        should.not.exist err
+
+        baz.foo.should.be.equal "foo"
+        baz.bar.should.be.equal "bar"
+        done()

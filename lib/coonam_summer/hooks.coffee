@@ -42,3 +42,19 @@ hooks.contextIdAware = ->
         callback()
     else
       callback()
+
+hooks.autowired = ->
+  Summer.addHook "afterInitialize", (factory, instance, callback)->
+    # get autowire from instance constructor
+    autowire = Summer.autowire(instance.constructor)
+    # or try the original initializer of the factory
+    autowire ||= Summer.autowire(factory.origInitializer)
+
+    return callback() unless autowire
+
+    @resolve autowire, (err, autowire)->
+      return callback(err) if err
+
+      instance[k] = v for k, v of autowire
+      callback()
+

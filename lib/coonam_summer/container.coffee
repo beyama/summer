@@ -107,6 +107,30 @@ class ResolveContext
 class Summer extends EventEmitter
   @ref: Ref
 
+  @autowire: (klass, properties)->
+    return if typeof klass isnt "function"
+
+    # setter
+    if properties
+      autowire = klass.autowire ||= {}
+      # check if autowire is just inherited from parent
+      if autowire is klass.__super__?.constructor.autowire
+        # set new autowire object
+        autowire = klass.autowire = {}
+
+      autowire[k] = v for k, v of properties
+
+    # getter
+    else
+      parent = if _super = klass.__super__?.constructor then @autowire(_super)
+
+      if autowire = klass.autowire
+        parent ||= {}
+        parent[k] = v for k, v of autowire
+        parent
+      else
+        parent
+
   @_hooks = {}
 
   # Register a hook for an event.
@@ -306,6 +330,7 @@ class Summer extends EventEmitter
     if factory.class
       factory.initializer = @buildClassInitializer(factory)
     else
+      factory.origInitializer = factory.initializer
       factory.initializer = @buildNcallInitializer(factory)
 
     @factories[id] = factory
@@ -393,7 +418,5 @@ for name, func of Summer.prototype when typeof func is "function"
   unless ResolveContext::[name]
     do (name, func)->
       ResolveContext::[name] = -> func.apply(@.context, arguments)
-
-Summer.ref = Ref
 
 module.exports = Summer

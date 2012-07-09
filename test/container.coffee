@@ -66,6 +66,44 @@ describe "Summer", ->
           foo.should.be.equal instance
           done()
 
+  Parent = Child = null
+
+  describe "class method .autowire", ->
+    beforeEach ->
+      class Parent
+      class Child extends Parent
+
+    it "should return undefined if called without function/constructor", ->
+      should.not.exist Summer.autowire({})
+
+    it "should set autowired properties on function/constructor", ->
+      Summer.autowire Parent, foo: "bar"
+      Parent.autowire.should.have.property "foo", "bar"
+
+    it "should set new autowire object if autowire is inherited from parent", ->
+      Summer.autowire Parent, foo: "bar"
+
+      class Child extends Parent
+
+      # Child autowire is copied from Coffees extend
+      Child.autowire.should.be.equal Parent.autowire
+
+      Summer.autowire Child, bar: "baz"
+      Child.autowire.should.not.be.equal Parent.autowire
+      Parent.autowire.should.not.have.property "bar"
+
+    it "should get autowired properties from function/constructor", ->
+      Summer.autowire Parent, foo: "bar"
+      Summer.autowire(Parent).should.have.property "foo", "bar"
+
+    it "should get autowired properties including properties from parent", ->
+      Summer.autowire Parent, foo: "bar"
+      Summer.autowire Child,  bar: "baz"
+
+      autowire = Summer.autowire(Child)
+      autowire.should.have.property "foo", "bar"
+      autowire.should.have.property "bar", "baz"
+
   describe ".get", ->
     it "should return undefined if no value is set", ->
       should.ok c.get("foo") is undefined
