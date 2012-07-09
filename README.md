@@ -148,6 +148,12 @@ Summer can resolve one or more objects at once.
       doSomething services.serviceOne
       doSomething services.serviceTwo
 
+**Resolve multiple objects with an alias to id map:**
+
+    c.resolve foo: "serviceOne", bar: "serviceTwo", (err, services)->
+      services.foo #=> serviceOne
+      services.bar #=> serviceTwo
+
 #### Manually resolve an object from an initializer
 
 If you like to resolve an object manually from inside your initializer function,
@@ -245,11 +251,14 @@ They can be added as follow:
 
 *   Summer.initializingObject: If implemented on resolved object, this will call
     "afterPropertiesSet". This hook is registered on the "afterPropertiesSet" phase.
+    If implemented with one argument, a callback will be supplied.
 *   Summer.applicationContextAware: If implemented on the resolved object, this will call
     "setApplicationContext" with the context. This hook is registered on the 
     "afterInitialize" phase.
+    If implemented with more than one argument, a callback will be supplied as second argument.
 *   Summer.contextIdAware: If implement on the resolved object, this will call
     "setContextId" with the context id. This hook is registered on the "afterInitialize" phase.
+    If implemented with more than one argument, a callback will be supplied as second argument.
 
 **Example:**
 
