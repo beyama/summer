@@ -62,28 +62,6 @@ resolveArguments = (context, args, callback)->
   else
     callback(null, args)
 
-# Internal helper to resolve and set properties on an instance.
-resolveAndSetProperties = (context, factory, target, properties, callback)->
-  hasProperties = if properties then Object.keys(properties).length else false
-
-  if hasProperties
-    async.forEachSeries Object.keys(properties), (propertyName, callback)=>
-      value = properties[propertyName]
-      if value instanceof Ref
-        context.resolve value.toString(), (err, ref)->
-          return callback(err) if err
-
-          target[propertyName] = ref
-          callback()
-      else
-        instance[propertyName] = value
-        callback()
-    , (err)->
-      return callback(err) if err
-      Summer.runHooks("afterPropertiesSet", context, factory, target, callback)
-  else
-    Summer.runHooks("afterPropertiesSet", context, factory, target, callback)
-
 # ## ResolveContext class
 #
 # Is used internally as binding for initializer functions to detect cyclical dependencies.
@@ -195,23 +173,17 @@ class Summer extends EventEmitter
     @attributes = {}
     @factories  = {}
 
-  # Dispose an object by emitting "dispose", removing it from the context,
-  # calling the finalizer and calling the "dispose" hooks.
+  # Dispose an object by emitting "dispose", removing it from the context
+  # and calling the "dispose" hooks.
   dispose: (id, callback)->
     object = @attributes[id]
     factory = @getFactory(id)
 
     return callback() unless object or factory
 
-    @emit("dispose", @, factory, object)
-
     @delete(id)
-
-    if (factory.finalizer)
-      factory.finalizer.call @, object, ->
-        Summer.runHooks("dispose", @, factory, object, callback)
-    else
-      Summer.runHooks("dispose", @, factory, object, callback)
+    @emit("dispose", @, factory, object)
+    Summer.runHooks("dispose", @, factory, object, callback)
 
   # Get the ids of all registered factories where class is klass or class is subclass of klass.
   getIdsForType: (klass)->
@@ -286,12 +258,11 @@ class Summer extends EventEmitter
       callback(null, instance)
     @buildNcallInitializer(factory)
 
-  # Internally used to wrap an initializer function to resolve arguments,
-  # run hooks and set properties after initializing.
+  # Internally used to wrap an initializer function to resolve arguments first,
+  # then call the initializer and run the afterInitialize hooks.
   buildNcallInitializer: (factory)->
     args = factory.args
     func = factory.initializer
-    properties = factory.properties
 
     (callback)->
       resolveArguments @, args, (err, args=[])=>
@@ -301,10 +272,7 @@ class Summer extends EventEmitter
           return callback(err) if err
 
           Summer.runHooks "afterInitialize", @, factory, result, (err)=>
-            return callback(err) if err
-
-            resolveAndSetProperties @, factory, result, properties, (err)->
-              callback(err, result)
+            callback(err, result)
         func.apply(@, args)
 
   # Register a class/initializer

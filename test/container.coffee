@@ -361,31 +361,16 @@ describe "Summer", ->
         test1.args[0].should.be.equal "foo"
         done()
 
-    it "should resolve class properties", (done)->
-      c.register "test1", class: Test, args: ["foo"]
-      c.register "test2", class: Test, properties: { test: ref("test1") }
-
-      c.resolve "test2", (err, test2)->
-        should.not.exist err
-
-        test2.should.be.instanceof Test
-        test2.args.should.have.length 0
-
-        test1 = test2.test
-        test1.should.be.instanceof Test
-        test1.args.should.have.length 1
-        test1.args[0].should.be.equal "foo"
-        done()
-
   describe ".dispose", ->
-    it "should run finalizer, delete resolved object and emit 'dispose'", (done)->
+    it "should delete resolved object from scope, run 'dispose' hooks and emit 'dispose'", (done)->
+      Summer.disposableEntity()
       finalizerCalled = false
       listenerCalled  = false
 
       c.register "test",
         class: Test
         scope: "singleton"
-        finalizer: (object, callback)->
+        dispose: (object, callback)->
           finalizerCalled = true
           object.should.be.instanceof Test
           @.should.be.equal c
@@ -440,6 +425,7 @@ describe "Summer", ->
 
   describe ".middleware", ->
     beforeEach ->
+      Summer.disposableEntity()
       app = connect()
       app.use c.middleware()
 
@@ -465,9 +451,7 @@ describe "Summer", ->
       c.register "test",
         class: Test
         scope: "request"
-        finalizer: (object, callback)->
-          called = true
-          callback()
+        dispose: (object)-> called = true
 
       request(app)
         .get("/")

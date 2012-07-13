@@ -33,14 +33,37 @@ describe "hook", ->
     Summer.removeAllHooks()
     c = new Summer
     c.register "test", class: Test
-    c.register "testWithCallbacks", class: TestWithCallbacks, scope: "singleton"
-    c.register "testWithAsyncCallbacks", class: TestWithAsyncCallbacks, scope: "singleton"
 
-  describe "initializingObject", ->
-    it "should call afterPropertiesSet on initialized object if implemented", (done)->
-      # set hook
-      Summer.initializingObject()
+    c.register "testWithCallbacks",
+      class: TestWithCallbacks
+      scope: "singleton"
+      init: "afterPropertiesSet"
 
+    c.register "testWithAsyncCallbacks",
+      class: TestWithAsyncCallbacks
+      scope: "singleton"
+      init: "afterPropertiesSet"
+
+
+  describe "resolveAndSetProperties", ->
+    beforeEach -> Summer.resolveAndSetProperties()
+
+    it "should resolve class properties", (done)->
+      c.register "test", class: Test, properties: { service: c.ref("testWithCallbacks") }
+
+      c.resolve "test", (err, test)->
+        should.not.exist err
+
+        test.should.be.instanceof Test
+        test.service.should.be.instanceof TestWithCallbacks
+        done()
+
+  describe "initializingEntity", ->
+    beforeEach ->
+      Summer.resolveAndSetProperties()
+      Summer.initializingEntity()
+
+    it "should call method named in init option on the initialized entity", (done)->
       c.resolve "test", (err, test)->
         should.not.exist err
 
@@ -50,9 +73,7 @@ describe "hook", ->
           testWithCallbacks.afterPropertiesSetCalled.should.be.true
           done()
 
-    it "should call afterPropertiesSet async on initialized if implemented with callback argument", (done)->
-      Summer.initializingObject()
-
+    it "should call method named in init option asynchronous on the initialized entity if implemented with callback argument", (done)->
       c.resolve "testWithAsyncCallbacks", (err, test)->
         should.not.exist err
 
