@@ -1,3 +1,6 @@
 *.swp
 node_modules
 docs/*
+lib/*
+lib-cov/*
+coverage.html

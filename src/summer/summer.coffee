@@ -1,6 +1,6 @@
-Summer = module.exports = require "./lib/coonam_summer/container"
+Summer = module.exports = require "./container"
 
-for name, hook of require("./lib/coonam_summer/hooks")
+for name, hook of require("./hooks")
   Summer[name] = hook
 
 # register default hooks
