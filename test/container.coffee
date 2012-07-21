@@ -78,7 +78,7 @@ describe "Summer", ->
 
     it "should set autowired properties on function/constructor", ->
       Summer.autowire Parent, foo: "bar"
-      Parent.autowire.should.have.property "foo", "bar"
+      Parent._autowire.should.have.property "foo", "bar"
 
     it "should set new autowire object if autowire is inherited from parent", ->
       Summer.autowire Parent, foo: "bar"
@@ -86,11 +86,11 @@ describe "Summer", ->
       class Child extends Parent
 
       # Child autowire is copied from Coffees extend
-      Child.autowire.should.be.equal Parent.autowire
+      Child._autowire.should.be.equal Parent._autowire
 
       Summer.autowire Child, bar: "baz"
-      Child.autowire.should.not.be.equal Parent.autowire
-      Parent.autowire.should.not.have.property "bar"
+      Child._autowire.should.not.be.equal Parent._autowire
+      Parent._autowire.should.not.have.property "bar"
 
     it "should get autowired properties from function/constructor", ->
       Summer.autowire Parent, foo: "bar"
@@ -359,6 +359,19 @@ describe "Summer", ->
         test1.should.be.instanceof Test
         test1.args.should.have.length 1
         test1.args[0].should.be.equal "foo"
+        done()
+
+    it "should resolve properties", (done)->
+      c.register "myService", class: Test, scope: "singleton"
+      c.register "consumer",
+        initializer: (c)-> c(null, {})
+        properties: { service: c.ref("myService") }
+
+      c.resolve "consumer", (err, consumer)->
+        should.not.exist err
+
+        consumer.service.should.be.equal c.get("myService")
+        consumer.service.should.be.instanceof Test
         done()
 
   describe ".dispose", ->

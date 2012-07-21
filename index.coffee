@@ -6,7 +6,6 @@ for name, hook of require("./lib/coonam_summer/hooks")
 # register default hooks
 Summer.initializingEntity()
 Summer.disposableEntity()
-Summer.resolveAndSetProperties()
 Summer.applicationContextAware()
 Summer.contextIdAware()
 Summer.autowired()

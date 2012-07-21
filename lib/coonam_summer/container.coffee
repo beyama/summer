@@ -23,14 +23,6 @@ class Ref
 
 # ### Internal helper methods
 
-# Returns true if klass is a subclass of superklass otherwise false.
-isSubclassOf = (klass, superKlass)->
-    _super = klass.__super__
-    while _super
-      return true if _super is superKlass::
-      _super = _super.__super__
-    false
-
 # Create an instance of class with the supplied args as constructor arguments.
 createInstance = (klass, args)->
   switch args?.length ? 0
@@ -62,6 +54,29 @@ resolveArguments = (context, args, callback)->
   else
     callback(null, args)
 
+# Resolve and set properties from factory.properties.
+resolveAndSetProperties = (context, factory, instance, callback)->
+  properties = factory.properties
+  hasProperties = if properties then Object.keys(properties).length else false
+
+  if hasProperties
+    async.forEachSeries Object.keys(properties), (propertyName, callback)->
+      value = properties[propertyName]
+      if value instanceof Summer.ref
+        context.resolve value.toString(), (err, ref)->
+          return callback(err) if err
+
+          instance[propertyName] = ref
+          callback()
+      else
+        instance[propertyName] = value
+        callback()
+    , (err)->
+      return callback(err) if err
+      Summer.runHooks("afterPropertiesSet", context, factory, instance, callback)
+  else
+    Summer.runHooks("afterPropertiesSet", context, factory, instance, callback)
+
 # ## ResolveContext class
 #
 # Is used internally as binding for initializer functions to detect cyclical dependencies.
@@ -85,24 +100,33 @@ class ResolveContext
 class Summer extends EventEmitter
   @ref: Ref
 
+  # Returns true if klass is a subclass of superklass otherwise false.
+  @isSubclassOf: (klass, superKlass)->
+      _super = klass.__super__
+      while _super
+        return true if _super is superKlass::
+        _super = _super.__super__
+      false
+
+  # Get or set autowired properties.
   @autowire: (klass, properties)->
     return if typeof klass isnt "function"
 
     # setter
     if properties
-      autowire = klass.autowire ||= {}
+      autowire = klass._autowire ||= {}
       # check if autowire is just inherited from parent
-      if autowire is klass.__super__?.constructor.autowire
+      if autowire is klass.__super__?.constructor._autowire
         # set new autowire object
-        autowire = klass.autowire = {}
+        autowire = klass._autowire = {}
 
       autowire[k] = v for k, v of properties
-
+      klass
     # getter
     else
       parent = if _super = klass.__super__?.constructor then @autowire(_super)
 
-      if autowire = klass.autowire
+      if autowire = klass._autowire
         parent ||= {}
         parent[k] = v for k, v of autowire
         parent
@@ -187,13 +211,16 @@ class Summer extends EventEmitter
 
   # Get the ids of all registered factories where class is klass or class is subclass of klass.
   getIdsForType: (klass)->
-    for id, f of @factories when f.class and (f.class is klass or isSubclassOf(f.class, klass))
-      id
+    set = {}
+    for id, f of @factories when f.class and (f.class is klass or Summer.isSubclassOf(f.class, klass))
+      set[id] = true
+    set[id] = true for id in @parent.getIdsForType(klass) if @parent
+    Object.keys(set)
 
   # Return a middleware with `this` as parent context.
   #
   # See: Summer.middleware
-  middleware: (name="request")->
+  middleware: (name="request")=>
     Summer.middleware(@, name)
 
   # Returns a reference to a factory to resolve.
@@ -272,7 +299,10 @@ class Summer extends EventEmitter
           return callback(err) if err
 
           Summer.runHooks "afterInitialize", @, factory, result, (err)=>
-            callback(err, result)
+            return callback(err) if err
+
+            resolveAndSetProperties @, factory, result, (err)->
+              callback(err, result)
         func.apply(@, args)
 
   # Register a class/initializer
@@ -314,6 +344,7 @@ class Summer extends EventEmitter
       callback = context
       context = new ResolveContext(@)
 
+    # resolve a list of ids
     if Array.isArray(id)
       ids = id
       result = {}
@@ -327,6 +358,7 @@ class Summer extends EventEmitter
       , (err)->
         return callback(err) if err
         callback(null, result)
+    # resolve an alias to id map
     else if typeof id is "object"
       map = id
       result = {}
@@ -340,6 +372,7 @@ class Summer extends EventEmitter
       , (err)->
         return callback(err) if err
         callback(null, result)
+    # resolve a single id
     else
       factory = @getFactory(id)
 

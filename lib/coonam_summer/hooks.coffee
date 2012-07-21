@@ -5,35 +5,6 @@ Summer = require "./container"
 exports = module.exports
 hooks = exports.Hooks = {}
 
-# Resolve and set properties from factory.properties.
-#
-# This hook will run the afterPropertiesSet hook after setting
-# the resolved properties on the instance.
-hooks.resolveAndSetProperties = (factory, instance, callback)->
-  properties = factory.properties
-  hasProperties = if properties then Object.keys(properties).length else false
-
-  if hasProperties
-    async.forEachSeries Object.keys(properties), (propertyName, callback)=>
-      value = properties[propertyName]
-      if value instanceof Summer.ref
-        @resolve value.toString(), (err, ref)->
-          return callback(err) if err
-
-          instance[propertyName] = ref
-          callback()
-      else
-        instance[propertyName] = value
-        callback()
-    , (err)->
-      return callback(err) if err
-      Summer.runHooks("afterPropertiesSet", @, factory, instance, callback)
-  else
-    Summer.runHooks("afterPropertiesSet", @, factory, instance, callback)
-
-exports.resolveAndSetProperties = ->
-  Summer.addHook "afterInitialize", hooks.resolveAndSetProperties
-
 # Call setApplicationContext with the context and an optional callback
 # on the instance.
 hooks.applicationContextAware = (factory, instance, callback)->
@@ -82,6 +53,22 @@ hooks.autowired = (factory, instance, callback)->
     Summer.autowire(factory.origInitializer)
 
   return callback() unless autowire
+  
+  # look for typed properties
+  for alias, id of autowire
+    if typeof id is "function"
+      ids = @getIdsForType(id)
+
+      if ids.length is 0
+        return callback(new Error(
+          "No factory found for type `#{id.name || 'unnamed'}` of autowired property `#{alias}` at `#{factory.id}`."
+        ))
+      else if ids.length > 1
+        return callback(new Error(
+          "The type `#{id.name || 'unnamed'}` of autowired property `#{alias}` at `#{factory.id}` is ambiguous."
+        ))
+      else
+        autowire[alias] = ids[0]
 
   @resolve autowire, (err, autowire)->
     return callback(err) if err

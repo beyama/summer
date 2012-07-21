@@ -44,24 +44,8 @@ describe "hook", ->
       scope: "singleton"
       init: "afterPropertiesSet"
 
-
-  describe "resolveAndSetProperties", ->
-    beforeEach -> Summer.resolveAndSetProperties()
-
-    it "should resolve class properties", (done)->
-      c.register "test", class: Test, properties: { service: c.ref("testWithCallbacks") }
-
-      c.resolve "test", (err, test)->
-        should.not.exist err
-
-        test.should.be.instanceof Test
-        test.service.should.be.instanceof TestWithCallbacks
-        done()
-
   describe "initializingEntity", ->
-    beforeEach ->
-      Summer.resolveAndSetProperties()
-      Summer.initializingEntity()
+    beforeEach -> Summer.initializingEntity()
 
     it "should call method named in init option on the initialized entity", (done)->
       c.resolve "test", (err, test)->
@@ -169,4 +153,38 @@ describe "hook", ->
 
         baz.foo.should.be.equal "foo"
         baz.bar.should.be.equal "bar"
+        done()
+
+    it "should autowire typed properties", (done)->
+      class AbstractService
+      class Service extends AbstractService
+
+      c.register "service", class: Service
+
+      class Baz
+        Summer.autowire @, service: AbstractService
+
+      c.register "baz", class: Baz
+
+      c.resolve "baz", (err, baz)->
+        should.not.exist err
+
+        baz.service.should.instanceof Service
+        done()
+
+    it "should return an error if type of property is ambiguous", (done)->
+      class AbstractService
+      class Service1 extends AbstractService
+      class Service2 extends AbstractService
+
+      c.register "service1", class: Service1
+      c.register "service2", class: Service2
+
+      class Baz
+        Summer.autowire @, service: AbstractService
+
+      c.register "baz", class: Baz
+
+      c.resolve "baz", (err, baz)->
+        err.message.should.be.equal "The type `AbstractService` of autowired property `service` at `baz` is ambiguous."
         done()
