@@ -1,23 +1,24 @@
-# coonamSummer
+# summer
 
 Summer is a very simple straightforward IOC/DI container. It was
 developed with the goal in mind to define application
 contexts and resolve multiple asynchronous resources 
 with their dependencies with ease. 
 
-* [Basic usage](./#section_basics)
-  * [Root context](./#section_rootcontext)
-  * [Scoped context](./#section_scopedcontext)
-  * [Register initializer](./#section_register)
-  * [Resolve objects](./#section_resolve)
-* [Scoped locals](./#section_locals)
-* [Scoped objects](./#section_scoped)
-* [Middleware](./#section_middleware)
-* [Events](./#section_events)
-* [Hooks](./#section_hooks)
-* [Included hooks](./#section_included_hooks)
-* [Contribute](./#section_contribute)
-* [License](./#section_license)
+* [Basic usage](#section_basics)
+  * [Root context](#section_rootcontext)
+  * [Scoped context](#section_scopedcontext)
+  * [Register initializer](#section_register)
+  * [Resolve objects](#section_resolve)
+* [Scoped locals](#section_locals)
+* [Scoped objects](#section_scoped)
+* [Middleware](#section_middleware)
+* [Events](#section_events)
+* [Hooks](#section_hooks)
+* [Included hooks](#section_included_hooks)
+* [Autowired](#section_autowired)
+* [Contribute](#section_contribute)
+* [License](#section_license)
 
 <h2 id="section_basics">Basic usage</h2>
 
@@ -27,55 +28,72 @@ The root context, as its name implies, is a basic context without parent context
 
 **Initialize a root context:**
 
-    Summer = require "coonamSummer"
-    rootContext = new Summer
+``` coffee
+Summer = require "coonamSummer"
+rootContext = new Summer
+```
 
 <h3 id="section_scopedcontext">Scoped context</h3>
 
 A scoped context is an optionally named context with a parent context.
 
-The scoped context is the place were [scoped locals](./#section_locals) 
-and [scoped objects](./#section_scoped) are registered in 
+The scoped context is the place were [scoped locals](#section_locals) 
+and [scoped objects](#section_scoped) are registered in 
 (except "singleton" scoped objects, they are stored in the root context).
 
 **Initialize a scoped context:**
 
-    requestContext = new Summer(rootContext, "request")
+``` coffee
+requestContext = new Summer(rootContext, "request")
+```
 
 **Get root context and scoped contexts:**
 
-    childContext.parent #=> returns the parent context
-    childContext.root() #=> returns the root context
-    childContext.context("request") #=> returns the context with name `request`
+``` coffee
+childContext.parent #=> returns the parent context
+childContext.root() #=> returns the root context
+childContext.context("request") #=> returns the context with name `request`
+```
 
 <h3 id="section_register">Register initializer</h3>
 
-There are three ways to register an initializer, either by register a 
-class or an initializer function or an asynchronous node style function.
+There are two ways to register an initializer, either by register a 
+class or an initializer function.
 
 Summer::register can be called as follow:
 
-    register(id, initializer_function)
-    register(id, array_of_arguments, initializer_function)
-    register(id, options, initializer_function)
-    register(id, options)
+
+``` coffee
+register(id, initializer_function)
+register(id, array_of_arguments, initializer_function)
+register(id, options, initializer_function)
+register(id, options)
+```
 
 **Possible options are:**
 
 * initializer: The initializer function (can be supplied as second or third argument)
-* finalizer: This function is called on deleting the resolved object from scope or
-  by shutting down the scope (only useful for [scoped objects](./#section_scoped)).
 * class: Class to initialize (only when no initializer is supplied)
 * args: Array of arguments for initializer/constructor
 * properties: Object with properties to set on initialized object
+* init: Function or name of an instance method to call after properties are set.
+* dispose: Function or name of an instance method to call after deleting
+  the resolved object from scope (only useful for [scoped objects](#section_scoped)).
+
+The "init" and "dispose" callbacks will be called with a callback function if the arguments
+length is greater than 0.
 
 **Register a class:**
 
-    c.register "fooService", class: FooSevice
+``` coffee
+c.register "fooService", class: FooSevice
+```
 
 **Register a class with constructor arguments:**
 
-    c.register "fooService", class: FooSevice, args: [c.ref("db"), 5]
+``` coffee
+c.register "fooService", class: FooSevice, args: [c.ref("db"), 5]
+```
 
 Summer::ref returns a reference to a registered service ("db" in this example).
 This reference will be resolved and supplied as first constructor argument, 
@@ -83,56 +101,71 @@ the second constructor argument will be 5.
 
 **Register a class with properties:**
 
-    c.register "fooService",
-      class: FooSevice
-      properties:
-        db: c.ref("db")
-        maxConnections: 5
+``` coffee
+c.register "fooService",
+  class: FooSevice
+  properties:
+    db: c.ref("db")
+    maxConnections: 5
+```
 
 This properties will be applied after constructing the class. 
 For an explanation of "c.ref" see the example above.
 
-**Register an initializer function:**
+**Register an initializer:**
 
-    c.register "db", (callback)->
-      db = new DB(...)
-      db.open (err, db)->
-        callback(err, db)
-
-or
-
-    c.register "db", 
-      initializer: (callback)-> ...
-
-**Register an initializer function with arguments:**
-
-    c.register "usersCollection", [c.ref("db")], (db, callback)->
-      db.collection "userCollection", (err, collection)->
-        callback(err, collection)
+``` coffee
+c.register "db", (callback)->
+  db = new DB(...)
+  db.open (err, db)->
+    callback(err, db)
+```
 
 or
 
-    c.register "usersCollection", { args: c.ref("db") }, (db, callback)-> ...
+``` coffee
+c.register "db", 
+  initializer: (callback)-> ...
+```
+
+**Register an initializer with arguments:**
+
+``` coffee
+c.register "usersCollection", [c.ref("db")], (db, callback)->
+  db.collection "userCollection", (err, collection)->
+    callback(err, collection)
+```
 
 or
 
-    fs = require "fs"
-    c.register "configFile", { args: __dirname + "/../config.json" }, fs.readFile
+``` coffee
+c.register "usersCollection", { args: c.ref("db") }, (db, callback)-> ...
+```
 
-**Register an initializer function with multiple arguments:**
+or
 
-    c.register "userController", ["userCollection", "commentCollection"], (users, comments, callback)->
-      callback(null, new UserController(users, comments))
+``` coffee
+fs = require "fs"
+c.register "configFile", { args: __dirname + "/../config.json" }, fs.readFile
+```
 
-**Register an initializer function with finalizer:**
+**Register an initializer with multiple arguments:**
 
-    c.register "db",
-      initializer: (callback)->
-        db = new DB(...)
-        db.open (err, db)->
-          callback(err, db)
-      finalizer: (db)->
-        db.close()
+``` coffee
+c.register "userController", ["userCollection", "commentCollection"], (users, comments, callback)->
+  callback(null, new UserController(users, comments))
+```
+
+**Register an initializer with a dispose method:**
+
+``` coffee
+c.register "db",
+  initializer: (callback)->
+    db = new DB(...)
+    db.open (err, db)->
+      callback(err, db)
+  dispose: "close" # same as (db)-> db.close()
+```
 
 <h3 id="section_resolve">Resolve objects</h3>
 
@@ -140,19 +173,25 @@ Summer can resolve one or more objects at once.
 
 **Resolve one object:**
 
-    c.resolve "serviceId", (err, service)-> ...
+``` coffee
+c.resolve "serviceId", (err, service)-> ...
+```
 
 **Resolve multiple objects:**
 
-    c.resolve ["serviceOne", "serviceTwo"], (err, services)->
-      doSomething services.serviceOne
-      doSomething services.serviceTwo
+``` coffee
+c.resolve ["serviceOne", "serviceTwo"], (err, services)->
+  doSomething services.serviceOne
+  doSomething services.serviceTwo
+```
 
 **Resolve multiple objects with an alias to id map:**
 
-    c.resolve foo: "serviceOne", bar: "serviceTwo", (err, services)->
-      services.foo #=> serviceOne
-      services.bar #=> serviceTwo
+``` coffee
+c.resolve foo: "serviceOne", bar: "serviceTwo", (err, services)->
+  services.foo #=> serviceOne
+  services.bar #=> serviceTwo
+```
 
 #### Manually resolve an object from an initializer
 
@@ -169,14 +208,16 @@ shadow values from ancestor scopes.
 
 **For example:**
 
-    context.set "foo", "bar"
-    childContext.has "foo" #=> true
-    childContext.get "foo" #=> "bar"
-    childContext.set "foo", "baz"
-    childContext.get "foo" #=> "baz"
-    context.get "foo" #=> "bar"
-    childContext.delete "foo"
-    childContext.get "foo" #=> "bar"
+``` coffee
+context.set "foo", "bar"
+childContext.has "foo" #=> true
+childContext.get "foo" #=> "bar"
+childContext.set "foo", "baz"
+childContext.get "foo" #=> "baz"
+context.get "foo" #=> "bar"
+childContext.delete "foo"
+childContext.get "foo" #=> "bar"
+```
 
 <h2 id="section_scoped">Scoped objects</h2>
 
@@ -187,11 +228,15 @@ which is registered on the root context. If no scope option is given "prototype"
 
 **Singleton scope example:**
 
-    c.register "fooService", class: FooSevice, scope: "singleton"
+``` coffee
+c.register "fooService", class: FooSevice, scope: "singleton"
+```
 
 **Request scope example:**
 
-    c.register "fooService", class: FooSevice, scope: "request"
+``` coffee
+c.register "fooService", class: FooSevice, scope: "request"
+```
 
 <h2 id="section_middleware">Middleware</h2>
 
@@ -201,10 +246,12 @@ a request scope on every request. It calls shutdown on the request scope after c
 
 **For example:**
 
-    app.use applicationContext.middleware([name="request"])
-    app.use (req, res)->
-      doSometing req.context
-      res.end("ok") #=> will shutdown the previously created request context (req.context)
+``` coffee
+app.use applicationContext.middleware([name="request"])
+app.use (req, res)->
+  doSometing req.context
+  res.end("ok") #=> will shutdown the previously created request context (req.context)
+```
 
 <h2 id="section_events">Events</h2>
 
@@ -224,68 +271,79 @@ resolved objects during their life cycle.
 
 **Registration of a hook**
 
-    Summer.addHook "afterPropertiesSet", (factory, instance, callback)->
-      if typeof instance.afterPropertiesSet is "function"
-        instance.afterPropertiesSet()
-      callback()
+``` coffee
+Summer.addHook "afterPropertiesSet", (factory, instance, callback)->
+  if typeof instance.afterPropertiesSet is "function"
+    instance.afterPropertiesSet()
+  callback()
+```
 
 Summer has three life cycle phases: 
 
 * afterInitialize: Is called after resolving the object and before setting its properties.
 * afterPropertiesSet: Is called after resolving and setting properties on the resolved object,
-  this is called independently of defining properties for a registry entry.
-* dispose: Is called after removing the resolved object from scope and calling its finalizer.
-
-All predefined life cycle hooks are called with the current scope as their binding and
-the factory and the instance as arguments.
+  this is called independently of defining properties for a registry entry (provided
+  by the "resolveAndSetProperties" hook).
+* dispose: Is called after removing the resolved object from scope.
 
 <h2 id="section_included_hooks">Included hooks</h2>
 
-Summer comes with some predefined hooks to extend the basic functionality.
+Summer comes with predefined and pre-registered hooks to extend its basic functionality:
 
-They can be added as follow:
-
-    Summer.initializingObject()
-    Summer.applicationContextAware()
-    Summer.contextIdAware()
-
-*   Summer.initializingObject: If implemented on resolved object, this will call
-    "afterPropertiesSet". This hook is registered on the "afterPropertiesSet" phase.
-    If implemented with one argument, a callback will be supplied.
-*   Summer.applicationContextAware: If implemented on the resolved object, this will call
-    "setApplicationContext" with the context. This hook is registered on the 
-    "afterInitialize" phase.
-    If implemented with more than one argument, a callback will be supplied as second argument.
-*   Summer.contextIdAware: If implement on the resolved object, this will call
+*   Summer.Hooks.autowired: Checks the class/initializer for "autowire" annotations and process
+    them.
+*   Summer.Hooks.disposableEntity: Handles the factories "dispose" option.
+*   Summer.Hooks.initializingEntity: Handles the factories "init" option.
+*   Summer.Hooks.applicationContextAware: If implemented on the resolved object, this will call
+    "setApplicationContext" with the context. This hook is registered on the "afterInitialize" phase.
+*   Summer.Hooks.contextIdAware: If implement on the resolved object, this will call
     "setContextId" with the context id. This hook is registered on the "afterInitialize" phase.
     If implemented with more than one argument, a callback will be supplied as second argument.
 
-**Example:**
+<h2 id="section_autowired">Autowired</h2>
 
-    Summer.initializingObject()
-    Summer.applicationContextAware()
-    Summer.contextIdAware()
+Autowiring allows a class or initializer to declare its dependencies by id or type.
 
-**Example class:**
+**For example:**
 
-    class Extension
-      setContextId: (id)-> @id = id
-      setApplicationContext: (ctx)-> @ctx = ctx
-      afterPropertiesSet: -> doSomething()
+``` coffee
+class PostService
+  Summer.autowire @, collection: 'postCollection'
+```
+
+This will set the property "collection" with the resolved "postCollection" on an instance
+of "PostService" resolved by Summer.
+
+Another way to declare dependencies is by supplying a type.
+
+**For example:**
+
+``` coffee
+class PostService
+  Summer.autowire @, persistenceManager: PersistenceManager
+```
+
+This will look for a factory with a class or subclass of "PersistenceManager".
+The type must not be ambiguous in the registry, that means there should be only
+one factory with class/subclass of "PersistenceManager" registered.
 
 <h2 id="section_contribute">How to contribute</h2>
 
 If you find what looks like a bug:
 
-      Check the GitHub issue tracker to see if anyone else has reported an issue.
-      If you don’t see anything, create an issue with information about how to reproduce it.
+Check the GitHub issue tracker to see if anyone else has reported an issue.
+
+If you don’t see anything, create an issue with information about how to reproduce it.
 
 If you want to contribute an enhancement or a fix:
 
-      Fork the project on github.
-      Make your changes with tests.
-      Commit the changes without making changes to any files that aren’t related to your enhancement or fix.
-      Send a pull request.
+Fork the project on github.
+
+Make your changes with tests.
+
+Commit the changes without making changes to any files that aren’t related to your enhancement or fix.
+
+Send a pull request.
 
 <h2 id="section_license">License</h2>
 

@@ -21,4 +21,4 @@ clean:
 lib-cov: clean build
 	@jscoverage lib lib-cov
 
-.PHONY: test benchmark
+.PHONY: test
