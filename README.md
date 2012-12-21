@@ -5,35 +5,35 @@ developed with the goal in mind to define application
 contexts and resolve multiple asynchronous resources 
 with their dependencies with ease. 
 
-* [Basic usage](#section_basics)
-  * [Root context](#section_rootcontext)
-  * [Scoped context](#section_scopedcontext)
-  * [Register initializer](#section_register)
-  * [Resolve objects](#section_resolve)
-* [Scoped locals](#section_locals)
-* [Scoped objects](#section_scoped)
-* [Middleware](#section_middleware)
-* [Events](#section_events)
-* [Hooks](#section_hooks)
-* [Included hooks](#section_included_hooks)
-* [Autowired](#section_autowired)
-* [Contribute](#section_contribute)
-* [License](#section_license)
+* [Basic usage](#basic-usage)
+  * [Root context](#root-context)
+  * [Scoped context](#scoped-context)
+  * [Register initializer](#register-initializer)
+  * [Resolve objects](#resolve-objects)
+* [Scoped locals](#scoped-locals)
+* [Scoped objects](#scoped-objects)
+* [Middleware](#middleware)
+* [Events](#events)
+* [Hooks](#hooks)
+* [Included hooks](#included-hooks)
+* [Autowired](#autowired)
+* [Contribute](#how-to-contribute)
+* [License](#license)
 
-<h2 id="section_basics">Basic usage</h2>
+## Basic usage
 
-<h3 id="section_rootcontext">Root context</h3>
+### Root context
 
 The root context, as its name implies, is a basic context without parent context.
 
 **Initialize a root context:**
 
 ``` coffee
-Summer = require "coonamSummer"
+Summer = require "summer"
 rootContext = new Summer
 ```
 
-<h3 id="section_scopedcontext">Scoped context</h3>
+### Scoped context
 
 A scoped context is an optionally named context with a parent context.
 
@@ -55,7 +55,7 @@ childContext.root() #=> returns the root context
 childContext.context("request") #=> returns the context with name `request`
 ```
 
-<h3 id="section_register">Register initializer</h3>
+### Register initializer
 
 There are two ways to register an initializer, either by register a 
 class or an initializer function.
@@ -167,7 +167,7 @@ c.register "db",
   dispose: "close" # same as (db)-> db.close()
 ```
 
-<h3 id="section_resolve">Resolve objects</h3>
+### Resolve objects
 
 Summer can resolve one or more objects at once.
 
@@ -199,7 +199,7 @@ If you like to resolve an object manually from inside your initializer function,
 it is important to do this with the method "resolve" on the current binding (this or @) 
 and not with "resolve" on your context object, otherwise the cyclical dependency detection won't work.
 
-<h2 id="section_locals">Scoped locals</h2>
+## Scoped locals
 
 The context/scope acts like an "inheritable" map where "get" and "has"
 goes backwards up the ancestor chain of the scope to find a value. 
@@ -219,7 +219,7 @@ childContext.delete "foo"
 childContext.get "foo" #=> "bar"
 ```
 
-<h2 id="section_scoped">Scoped objects</h2>
+## Scoped objects
 
 Scoped objects are objects which are singletons in their scope.
 The scope option can be any name of an existing named scope. Special scopes are
@@ -238,7 +238,7 @@ c.register "fooService", class: FooSevice, scope: "singleton"
 c.register "fooService", class: FooSevice, scope: "request"
 ```
 
-<h2 id="section_middleware">Middleware</h2>
+## Middleware
 
 The Summer::middleware method returns a Connect middleware which wraps the context in
 a request scope on every request. It calls shutdown on the request scope after calling
@@ -253,7 +253,7 @@ app.use (req, res)->
   res.end("ok") #=> will shutdown the previously created request context (req.context)
 ```
 
-<h2 id="section_events">Events</h2>
+## Events
 
 The Summer container extends Nodes events.EventEmitter. Three events are emitted by Summer:
 
@@ -264,7 +264,7 @@ The Summer container extends Nodes events.EventEmitter. Three events are emitted
 * shutdown: During shutting down the container, triggered by Summer::shutdown. 
   The listener signature is (container).
 
-<h2 id="section_hooks">Hooks</h2>
+## Hooks
 
 The hooks are interceptor callbacks, allowing the application to inspect and/or manipulate
 resolved objects during their life cycle.
@@ -286,7 +286,7 @@ Summer has three life cycle phases:
   by the "resolveAndSetProperties" hook).
 * dispose: Is called after removing the resolved object from scope.
 
-<h2 id="section_included_hooks">Included hooks</h2>
+## Included hooks
 
 Summer comes with predefined and pre-registered hooks to extend its basic functionality:
 
@@ -300,7 +300,7 @@ Summer comes with predefined and pre-registered hooks to extend its basic functi
     "setContextId" with the context id. This hook is registered on the "afterInitialize" phase.
     If implemented with more than one argument, a callback will be supplied as second argument.
 
-<h2 id="section_autowired">Autowired</h2>
+## Autowired
 
 Autowiring allows a class or initializer to declare its dependencies by id or type.
 
@@ -327,7 +327,7 @@ This will look for a factory with a class or subclass of "PersistenceManager".
 The type must not be ambiguous in the registry, that means there should be only
 one factory with class/subclass of "PersistenceManager" registered.
 
-<h2 id="section_contribute">How to contribute</h2>
+## How to contribute
 
 If you find what looks like a bug:
 
@@ -345,8 +345,10 @@ Commit the changes without making changes to any files that aren’t related to 
 
 Send a pull request.
 
-<h2 id="section_license">License</h2>
+## License
 
 Created by Alexander Jentz, Germany.
 
 MIT License. See the included MIT-LICENSE file.
+
+#### Author: [Alexander Jentz](http://beyama.de)
