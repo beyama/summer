@@ -375,8 +375,9 @@ describe "Summer", ->
         done()
 
   describe ".dispose", ->
+    beforeEach -> Summer.disposableEntity()
+
     it "should delete resolved object from scope, run 'dispose' hooks and emit 'dispose'", (done)->
-      Summer.disposableEntity()
       finalizerCalled = false
       listenerCalled  = false
 
@@ -402,6 +403,12 @@ describe "Summer", ->
           listenerCalled.should.be.true
           c.has("test").should.be.false
           done()
+
+    it "should only unregister local if dispose target is a local and not a factory", (done)->
+      c.set "logger", {}
+      c.dispose "logger", ->
+        c.has("logger").should.be.false
+        done()
 
   describe ".getIdsForType", ->
     it "should get ids for all factories with class or subclass of class", ->

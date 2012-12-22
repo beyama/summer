@@ -347,8 +347,6 @@ Send a pull request.
 
 ## License
 
-Created by Alexander Jentz, Germany.
+Created by [Alexander Jentz](http://beyama.de), Germany.
 
 MIT License. See the included MIT-LICENSE file.
-
-#### Author: [Alexander Jentz](http://beyama.de)

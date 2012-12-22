@@ -203,11 +203,18 @@ class Summer extends EventEmitter
     object = @attributes[id]
     factory = @getFactory(id)
 
-    return callback() unless object or factory
+    if object
+      # unregister object
+      @delete(id)
 
-    @delete(id)
-    @emit("dispose", @, factory, object)
-    Summer.runHooks("dispose", @, factory, object, callback)
+      if factory
+        # dispose object
+        @emit("dispose", @, factory, object)
+        Summer.runHooks("dispose", @, factory, object, callback)
+      else
+        callback()
+    else
+      callback()
 
   # Get the ids of all registered factories where class is klass or class is subclass of klass.
   getIdsForType: (klass)->
