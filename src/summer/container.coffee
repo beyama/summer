@@ -359,29 +359,39 @@ class Summer extends EventEmitter
       ids = id
       result = {}
 
-      async.forEachSeries ids, (id, callback)=>
+      iterator = (id, callback)=>
         @resolve id, context, (err, res)->
           return callback(err) if err
 
           result[id] = res
-          callback(null, res)
-      , (err)->
+          callback(null)
+
+      end = (err)->
         return callback(err) if err
         callback(null, result)
+
+      async.forEachSeries(ids, iterator, end)
+
     # resolve an alias to id map
     else if typeof id is "object"
       map = id
+      ids = Object.keys(map)
       result = {}
 
-      async.forEachSeries Object.keys(map), (alias, callback)=>
+      iterator = (alias, callback)=>
         _id = map[alias]
-        @resolve _id, (err, res)->
-          callback(err) if err
+        @resolve _id, context, (err, res)->
+          return callback(err) if err
+
           result[alias] = res
-          callback()
-      , (err)->
+          callback(null)
+
+      end = (err)->
         return callback(err) if err
         callback(null, result)
+
+      async.forEachSeries(ids, iterator, end)
+
     # resolve a single id
     else
       factory = @getFactory(id)
