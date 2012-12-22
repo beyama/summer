@@ -79,12 +79,18 @@ hooks.autowired = (factory, instance, callback)->
 exports.autowired = ->
   Summer.addHook "afterInitialize", hooks.autowired
 
+# Call a named function on target if strOrFunc is a string
+# or call function with target as binding if strOrFunc is
+# a function.
 call = (target, strOrFunc, callback)->
-  if typeof strOrFunc is "string" and typeof target[strOrFunc] is "function"
-    if target[strOrFunc].length
-      target[strOrFunc](callback)
+  if typeof strOrFunc is "string"
+    if typeof target[strOrFunc] is "function"
+      if target[strOrFunc].length
+        target[strOrFunc](callback)
+      else
+        target[strOrFunc]()
+        callback()
     else
-      target[strOrFunc]()
       callback()
   else
     if strOrFunc.length > 1
