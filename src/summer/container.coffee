@@ -338,6 +338,9 @@ class Summer extends EventEmitter
       factory.origInitializer = factory.initializer
       factory.initializer = @buildNcallInitializer(factory)
 
+    # set singleton as default scope
+    factory.scope ||= "singleton"
+
     @factories[id] = factory
 
   # Get factory by id.
@@ -392,7 +395,7 @@ class Summer extends EventEmitter
       context.push(id)
 
       # get context for scope
-      if factory.scope and factory.scope isnt "prototype"
+      if factory.scope isnt "prototype"
         scope = if factory.scope is "singleton" then @root() else @context(factory.scope)
         unless scope
           return callback(new Error("Scope `#{factory.scope}` not found."))

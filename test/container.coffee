@@ -158,6 +158,7 @@ describe "Summer", ->
       factory = c.getFactory("object")
 
       factory.id.should.be.equal "object"
+      factory.scope.should.be.equal "singleton" # default scope
       should.exist factory.initializer
       should.not.exist factory.requires
 
@@ -266,7 +267,7 @@ describe "Summer", ->
 
     it "should set resolved object on root context if scope is singleton", (done)->
       child = new Summer(c)
-      c.register "test", class: Test, scope: "singleton"
+      c.register "test", class: Test
 
       child.resolve "test", (err, test)->
         should.not.exist err
@@ -277,7 +278,7 @@ describe "Summer", ->
 
     it "should get resolved object from context if already resolved", (done)->
       child = new Summer(c)
-      c.register "test", class: Test, scope: "singleton"
+      c.register "test", class: Test
 
       child.resolve "test", (err, test)->
         should.not.exist err
@@ -289,7 +290,7 @@ describe "Summer", ->
     it "should wait for resolves in process", (done)->
       called = false
       count  = 0
-      c.register "test", scope: "singleton", (callback)->
+      c.register "test", (callback)->
         process.nextTick ->
           called.should.be.false
           called = true
@@ -316,7 +317,7 @@ describe "Summer", ->
     it "should emit 'initialized'", (done)->
       called = false
 
-      c.register "test", class: Test, scope: "singleton"
+      c.register "test", class: Test
 
       c.on "initialized", (ctx, factory, object)->
         called = true
@@ -362,7 +363,7 @@ describe "Summer", ->
         done()
 
     it "should resolve properties", (done)->
-      c.register "myService", class: Test, scope: "singleton"
+      c.register "myService", class: Test
       c.register "consumer",
         initializer: (c)-> c(null, {})
         properties: { service: c.ref("myService") }
@@ -383,7 +384,6 @@ describe "Summer", ->
 
       c.register "test",
         class: Test
-        scope: "singleton"
         dispose: (object, callback)->
           finalizerCalled = true
           object.should.be.instanceof Test
@@ -432,7 +432,7 @@ describe "Summer", ->
 
   describe ".shutdown", ->
     it "should delete all resolved objects", (done)->
-      c.register "test", class: Test, scope: "singleton"
+      c.register "test", class: Test
 
       c.resolve "test", (err, test)->
         should.not.exist err

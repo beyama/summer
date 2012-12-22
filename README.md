@@ -224,12 +224,12 @@ childContext.get "foo" #=> "bar"
 Scoped objects are objects which are singletons in their scope.
 The scope option can be any name of an existing named scope. Special scopes are
 "prototype", which is not registered on any scope and "singleton", 
-which is registered on the root context. If no scope option is given "prototype" is assumed.
+which is registered on the root context. If no scope option is given "singleton" is assumed.
 
-**Singleton scope example:**
+**Prototype scope example:**
 
 ``` coffee
-c.register "fooService", class: FooSevice, scope: "singleton"
+c.register "fooService", class: FooSevice, scope: "prototype"
 ```
 
 **Request scope example:**

@@ -87,7 +87,7 @@ describe "hook", ->
     it "should get application context with the right scope", (done)->
       child = new Summer(c, "request")
 
-      c.register "test", class: TestWithCallbacks
+      c.register "test", class: TestWithCallbacks, scope: "prototype"
 
       child.resolve "test", (err, test)->
         should.not.exist err
