@@ -199,7 +199,7 @@ class Summer extends EventEmitter
 
   # Dispose an object by emitting "dispose", removing it from the context
   # and calling the "dispose" hooks.
-  dispose: (id, callback)->
+  dispose: (id, callback)=>
     object = @attributes[id]
     factory = @getFactory(id)
 
@@ -247,9 +247,13 @@ class Summer extends EventEmitter
 
     @emit "shutdown", @
 
-    async.forEachSeries Object.keys(@attributes), (id, callback)=>
-      @dispose(id, callback)
-    , callback
+    ids = for id in Object.keys(@attributes) when @getFactory(id)
+      id
+
+    if ids?.length
+      return async.forEachSeries(ids, @dispose, callback)
+    # else
+    callback()
 
   # Returns a named context.
   context: (name)->
