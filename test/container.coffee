@@ -239,7 +239,7 @@ describe "Summer", ->
         callback(null, 1)
 
       c.resolve "one", (err, result)->
-        err.message.should.be.equal "A cyclical dependency was detected."
+        err.message.should.be.equal "A cyclical dependency was detected (one)."
         done()
 
     it "should return an error if factory not found by supplied id", (done)->

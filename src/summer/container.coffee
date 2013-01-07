@@ -404,15 +404,20 @@ class Summer extends EventEmitter
         return callback(new Error("No factory found with id `#{id}`."))
 
       if context.contains(id)
-        return callback(new Error("A cyclical dependency was detected."))
-
-      context.push(id)
+        return callback(new Error("A cyclical dependency was detected (#{context.stack.join(" > ")})."))
 
       # get context for scope
       if factory.scope isnt "prototype"
         scope = if factory.scope is "singleton" then @root() else @context(factory.scope)
         unless scope
           return callback(new Error("Scope `#{factory.scope}` not found."))
+
+      # return scoped object if already resolved
+      if scope and (value = scope.get(id, false)) and value isnt InProgress
+        return callback(null, value)
+
+      # else resolve object
+      context.push(id)
 
       resolve = =>
         if scope
@@ -422,6 +427,7 @@ class Summer extends EventEmitter
             return async.nextTick resolve
           # return value if present
           else if value?
+            context.pop()
             return callback(null, value)
           else
             scope.set(id, InProgress)
