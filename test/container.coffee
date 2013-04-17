@@ -431,7 +431,41 @@ describe "Summer", ->
       ids.should.include "test2"
 
   describe ".shutdown", ->
-    it "should delete all resolved objects", (done)->
+    it "should emit shutdown", (done)->
+      c.on "shutdown", ->
+        arguments[0].should.be.equal c
+        done()
+      c.shutdown()
+
+    it "should unregister itself from parent context", (done)->
+      c1 = new Summer(c)
+      c.children.should.include c1
+      
+      c1.shutdown ->
+        c.children.should.not.include c1
+        done()
+
+    it "should shutdown each child context", (done)->
+      closed = 0
+
+      c1 = new Summer(c)
+      c2 = new Summer(c)
+
+      fn = -> closed++
+
+      c1.on "shutdown", fn
+      c2.on "shutdown", fn
+
+      c.children.should.include c1
+      c.children.should.include c2
+
+      c.shutdown ->
+        c.children.should.not.include c1
+        c.children.should.not.include c2
+        closed.should.be.equal 2
+        done()
+
+    it "should dispose all resolved objects", (done)->
       c.register "test", class: Test
 
       c.resolve "test", (err, test)->

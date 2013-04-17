@@ -192,29 +192,36 @@ class Summer extends EventEmitter
   # Takes optionally a parent context and a name.
   constructor: (parent, name)->
     super()
+
+    if parent and not (parent instanceof Summer)
+      throw new Error("Parent must be an instance of Summer")
+
     @parent = parent if parent
-    @name = name if name
+    @name   = name if name
     @attributes = {}
     @factories  = {}
 
+    if @parent
+      @parent.children ||= []
+      @parent.children.push(@)
+
   # Dispose an object by emitting "dispose", removing it from the context
   # and calling the "dispose" hooks.
-  dispose: (id, callback)=>
+  dispose: (id, callback)->
     object = @attributes[id]
+
+    return callback?() unless object
+
     factory = @getFactory(id)
 
-    if object
-      # unregister object
-      @delete(id)
+    # unregister object
+    @delete(id)
 
-      if factory
-        # dispose object
-        @emit("dispose", @, factory, object)
-        Summer.runHooks("dispose", @, factory, object, callback)
-      else
-        callback()
-    else
-      callback()
+    return callback?() unless factory
+
+    # dispose object
+    @emit("dispose", @, factory, object)
+    Summer.runHooks("dispose", @, factory, object, callback)
 
   # Get the ids of all registered factories where class is klass or class is subclass of klass.
   getIdsForType: (klass)->
@@ -247,13 +254,27 @@ class Summer extends EventEmitter
 
     @emit "shutdown", @
 
+    # remove this from parents context children array
+    if @parent
+      index = @parent.children.indexOf(@)
+      @parent.children.splice(index, 1) if index > -1
+
+    # select object which have a corresponding factory
     ids = for id in Object.keys(@attributes) when @getFactory(id)
       id
 
-    if ids?.length
-      return async.forEachSeries(ids, @dispose, callback)
-    # else
-    callback()
+    # get a copy of the children array
+    children = if @children then @children[0..-1] else []
+
+    # shutdown child-contexts
+    async.forEachSeries children, (c, next)->
+      c.shutdown(next)
+    , =>
+      # dispose each object
+      if ids.length
+        return async.forEachSeries(ids, @dispose.bind(@), callback)
+      # else
+      callback()
 
   # Returns a named context.
   context: (name)->
@@ -448,6 +469,6 @@ class Summer extends EventEmitter
 for name, func of Summer.prototype when typeof func is "function"
   unless ResolveContext::[name]
     do (name, func)->
-      ResolveContext::[name] = -> func.apply(@.context, arguments)
+      ResolveContext::[name] = -> func.apply(@context, arguments)
 
 module.exports = Summer
