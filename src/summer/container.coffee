@@ -191,6 +191,8 @@ class Summer extends EventEmitter
   #
   # Takes optionally a parent context and a name.
   constructor: (parent, name)->
+    return new Summer(parent, name) unless @ instanceof Summer
+
     super()
 
     if parent and not (parent instanceof Summer)
@@ -234,8 +236,7 @@ class Summer extends EventEmitter
   # Return a middleware with `this` as parent context.
   #
   # See: Summer.middleware
-  middleware: (name="request")=>
-    Summer.middleware(@, name)
+  middleware: (name="request")-> Summer.middleware(@, name)
 
   # Returns a reference to a factory to resolve.
   ref: Ref

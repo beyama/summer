@@ -16,7 +16,7 @@ class Test
 describe "Summer", ->
   beforeEach ->
     Summer.removeAllHooks()
-    c = new Summer
+    c = Summer()
 
   describe "class method .addHook", ->
     it "should register hook for an event", ->
@@ -113,7 +113,7 @@ describe "Summer", ->
       c.get("foo").should.be.equal "bar"
 
     it "should return value from parent", ->
-      child = new Summer(c)
+      child = Summer(c)
       c.set("foo", "bar")
       child.get("foo").should.be.equal "bar"
 
@@ -124,7 +124,7 @@ describe "Summer", ->
 
     it "should shadow parent properties", ->
       c.set("foo", "bar")
-      child = new Summer(c)
+      child = Summer(c)
       child.set("foo", "baz")
       child.attributes.should.have.property "foo", "baz"
       c.attributes.should.have.property "foo", "bar"
@@ -138,7 +138,7 @@ describe "Summer", ->
       c.has("foo").should.be.true
 
     it "should return value if value is set on parent", ->
-      child = new Summer(c)
+      child = Summer(c)
       c.set("foo", "bar")
       child.has("foo").should.be.true
 
@@ -266,7 +266,7 @@ describe "Summer", ->
         done()
 
     it "should set resolved object on root context if scope is singleton", (done)->
-      child = new Summer(c)
+      child = Summer(c)
       c.register "test", class: Test
 
       child.resolve "test", (err, test)->
@@ -277,7 +277,7 @@ describe "Summer", ->
         done()
 
     it "should get resolved object from context if already resolved", (done)->
-      child = new Summer(c)
+      child = Summer(c)
       c.register "test", class: Test
 
       child.resolve "test", (err, test)->
@@ -305,7 +305,7 @@ describe "Summer", ->
               done()
 
     it "should set resolved object on named context if scope isnt singleton or prototype", (done)->
-      req = new Summer(c, "request")
+      req = Summer(c, "request")
       c.register "test", class: Test, scope: "request"
       
       req.resolve "test", (err, test)->
@@ -438,7 +438,7 @@ describe "Summer", ->
       c.shutdown()
 
     it "should unregister itself from parent context", (done)->
-      c1 = new Summer(c)
+      c1 = Summer(c)
       c.children.should.include c1
       
       c1.shutdown ->
@@ -448,8 +448,8 @@ describe "Summer", ->
     it "should shutdown each child context", (done)->
       closed = 0
 
-      c1 = new Summer(c)
-      c2 = new Summer(c)
+      c1 = Summer(c)
+      c2 = Summer(c)
 
       fn = -> closed++
 
