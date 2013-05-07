@@ -1,6 +1,6 @@
 {
     "name": "summer"
-  , "version": "0.0.1"
+  , "version": "0.0.2"
   , "author": "Alexander Jentz"
   , "description": "A very simple straightforward IOC/DI container"
   , "keywords": ["ioc", "di"]
